@@ -3,7 +3,11 @@
     "allow": [
       "Read(//c/Users/papa-samba.mbaye/Desktop/**)",
       "Bash(python -c ' *)",
-      "PowerShell(Get-Command node, npm, npx 2>&1)"
+      "PowerShell(Get-Command node, npm, npx 2>&1)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_in_Chrome__navigate",
+      "mcp__Claude_in_Chrome__computer",
+      "mcp__Claude_in_Chrome__javascript_tool"
     ]
   }
 }
