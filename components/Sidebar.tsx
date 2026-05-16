@@ -3,16 +3,26 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 
-const nav = [
-  { href: '/dashboard',                  label: 'Tableau de bord',      icon: '📊' },
-  { href: '/dashboard/budget-structure', label: 'Budget Structure',     icon: '🏛️' },
-  { href: '/dashboard/actions',          label: 'Actions / Projets',    icon: '📋' },
-  { href: '/dashboard/emplois',          label: 'Emplois Repères',      icon: '👥' },
+const navItems = [
+  { href: '/dashboard',                  label: 'Tableau de bord',      icon: '📊', roles: ['admin', 'editeur', 'lecteur'] },
+  { href: '/dashboard/budget-structure', label: 'Budget Structure',     icon: '🏛️', roles: ['admin', 'editeur', 'lecteur'] },
+  { href: '/dashboard/actions',          label: 'Actions / Projets',    icon: '📋', roles: ['admin', 'editeur', 'lecteur'] },
+  { href: '/dashboard/emplois',          label: 'Emplois Repères',      icon: '👥', roles: ['admin', 'editeur', 'lecteur'] },
+  { href: '/dashboard/utilisateurs',     label: 'Utilisateurs',         icon: '🔐', roles: ['admin'] },
 ];
+
+const ROLE_LABELS: Record<string, string> = {
+  admin:   'Administrateur',
+  editeur: 'Consultation + Modification',
+  lecteur: 'Consultation',
+};
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const role = session?.user?.role ?? '';
+
+  const visibleItems = navItems.filter(item => item.roles.includes(role));
 
   return (
     <aside className="flex h-screen w-64 flex-col bg-navy shadow-xl">
@@ -30,7 +40,7 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="space-y-1">
-          {nav.map(item => {
+          {visibleItems.map(item => {
             const active = pathname === item.href ||
               (item.href !== '/dashboard' && pathname.startsWith(item.href));
             return (
@@ -56,9 +66,18 @@ export default function Sidebar() {
       <div className="border-t border-navy-light px-4 py-4">
         <p className="text-xs text-blue-300 truncate">{session?.user?.email}</p>
         <p className="text-xs font-medium text-white truncate">{session?.user?.name}</p>
+        {role && (
+          <p className="mt-0.5 text-xs text-gold truncate">{ROLE_LABELS[role] ?? role}</p>
+        )}
+        <Link
+          href="/dashboard/profil"
+          className="mt-2 block w-full rounded-lg bg-navy-light px-3 py-2 text-center text-xs font-medium text-blue-200 hover:text-white transition-colors"
+        >
+          Mon profil
+        </Link>
         <button
           onClick={() => signOut({ callbackUrl: '/login' })}
-          className="mt-3 w-full rounded-lg bg-navy-light px-3 py-2 text-xs font-medium text-blue-200 hover:bg-red-700 hover:text-white transition-colors"
+          className="mt-1 w-full rounded-lg bg-navy-light px-3 py-2 text-xs font-medium text-blue-200 hover:bg-red-700 hover:text-white transition-colors"
         >
           Déconnexion
         </button>

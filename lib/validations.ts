@@ -5,7 +5,7 @@ export const registerSchema = z.object({
   password: z.string().min(8, 'Minimum 8 caractères').max(100),
   nom:     z.string().min(1).max(100).trim(),
   prenom:  z.string().min(1).max(100).trim(),
-  role:    z.enum(['admin', 'user']).default('user'),
+  role:    z.enum(['admin', 'editeur', 'lecteur']).default('lecteur'),
 });
 
 export const actionSchema = z.object({
@@ -48,6 +48,19 @@ export const ressourceSchema = z.object({
   financeur:         z.string().min(1).max(255).trim(),
   montant:           z.number().min(0).default(0),
   type_financement:  z.string().max(100).optional().default(''),
+});
+
+export const createUserSchema = z.object({
+  email:    z.string().email('Email invalide').max(255),
+  password: z.string().min(8, 'Minimum 8 caractères').max(100),
+  nom:      z.string().min(1).max(100).trim(),
+  prenom:   z.string().min(1).max(100).trim(),
+  role:     z.enum(['editeur', 'lecteur']).default('lecteur'),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Mot de passe actuel requis'),
+  newPassword:     z.string().min(8, 'Minimum 8 caractères').max(100),
 });
 
 export const emploiSchema = z.object({

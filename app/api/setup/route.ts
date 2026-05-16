@@ -3,6 +3,9 @@ import { registerSchema } from '@/lib/validations';
 import { apiError, apiOk } from '@/lib/utils';
 import bcrypt from 'bcryptjs';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET() {
   try {
     const sql = getDb();
@@ -29,7 +32,7 @@ export async function POST(req: Request) {
     }
 
     const { email, password, nom, prenom, role } = parsed.data;
-    const hash = await bcrypt.hash(password, 12);
+    const hash = await bcrypt.hash(password, 10);
 
     await sql`
       INSERT INTO users (email, password_hash, nom, prenom, role)
@@ -38,10 +41,14 @@ export async function POST(req: Request) {
 
     return apiOk({ message: 'Administrateur créé avec succès' }, 201);
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Erreur serveur';
-    if (msg.includes('unique') || msg.includes('duplicate')) {
+    console.error('[setup POST]', err);
+    const msg = err instanceof Error ? err.message : '';
+    if (msg.includes('unique') || msg.includes('duplicate') || msg.includes('23505')) {
       return apiError('Cet email est déjà utilisé', 409);
     }
-    return apiError('Erreur serveur', 500);
+    if (msg.includes('check') || msg.includes('23514')) {
+      return apiError('Valeur de rôle invalide', 400);
+    }
+    return apiError(`Erreur serveur: ${msg}`, 500);
   }
 }
