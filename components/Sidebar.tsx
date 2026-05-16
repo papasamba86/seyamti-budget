@@ -6,6 +6,7 @@ import { signOut, useSession } from 'next-auth/react';
 const navItems = [
   { href: '/dashboard',                  label: 'Tableau de bord',      icon: '📊', roles: ['admin', 'editeur', 'lecteur'] },
   { href: '/dashboard/budget-structure', label: 'Budget Structure',     icon: '🏛️', roles: ['admin', 'editeur', 'lecteur'] },
+  { href: '/dashboard/budget-action',   label: 'Budget action',         icon: '🎯', roles: ['admin', 'editeur', 'lecteur'] },
   { href: '/dashboard/actions',          label: 'Actions / Projets',    icon: '📋', roles: ['admin', 'editeur', 'lecteur'] },
   { href: '/dashboard/emplois',          label: 'Emplois Repères',      icon: '👥', roles: ['admin', 'editeur', 'lecteur'] },
   { href: '/dashboard/utilisateurs',     label: 'Utilisateurs',         icon: '🔐', roles: ['admin'] },
