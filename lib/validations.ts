@@ -31,9 +31,16 @@ export const depensePersonnelSchema = z.object({
   action_id:              z.number().int().positive(),
   emploi_id:              z.number().int().positive(),
   agent_nom:              z.string().max(255).optional().default(''),
-  pourcentage_affectation: z.number().min(0).max(1),
+  pourcentage_affectation: z.number().min(0.01).max(1),
   heures:                 z.number().min(0).default(0),
   montant:                z.number().min(0).default(0),
+});
+
+export const depenseFonctionnementSchema = z.object({
+  action_id:   z.number().int().positive(),
+  libelle:     z.string().min(1, 'Libellé requis').max(255).trim(),
+  code_compte: z.string().max(10).optional().default(''),
+  montant:     z.number().min(0).default(0),
 });
 
 export const prestationSchema = z.object({
