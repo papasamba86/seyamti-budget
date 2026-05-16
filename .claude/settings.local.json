@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/papa-samba.mbaye/Desktop/**)",
+      "Bash(python -c ' *)",
+      "PowerShell(Get-Command node, npm, npx 2>&1)"
+    ]
+  }
+}

@@ -1,0 +1,93 @@
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { getDb } from '@/lib/db';
+import { depensePersonnelSchema } from '@/lib/validations';
+import { apiError, apiOk } from '@/lib/utils';
+
+export async function GET(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session) return apiError('Non autorisé', 401);
+
+  const { searchParams } = new URL(req.url);
+  const actionId = searchParams.get('action_id');
+  if (!actionId) return apiError('action_id requis');
+
+  const sql = getDb();
+  const rows = await sql`
+    SELECT dp.*, er.libelle AS emploi_libelle, er.cotation, er.indice_professionnel, er.salaire_annuel
+    FROM depenses_personnel dp
+    JOIN emplois_reperes er ON dp.emploi_id = er.id
+    WHERE dp.action_id = ${parseInt(actionId)}
+    ORDER BY dp.id
+  `;
+  return apiOk(rows);
+}
+
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session) return apiError('Non autorisé', 401);
+
+  const body = await req.json();
+  const parsed = depensePersonnelSchema.safeParse(body);
+  if (!parsed.success) return apiError(parsed.error.errors[0].message);
+
+  const { action_id, emploi_id, agent_nom, pourcentage_affectation, heures, montant } = parsed.data;
+  const sql = getDb();
+
+  const emplois = await sql`SELECT salaire_annuel FROM emplois_reperes WHERE id = ${emploi_id} LIMIT 1`;
+  if (emplois.length === 0) return apiError('Emploi introuvable', 404);
+
+  const calculatedHeures = heures > 0 ? heures : Math.round(1820 * pourcentage_affectation * 100) / 100;
+  const calculatedMontant = montant > 0
+    ? montant
+    : Math.round((emplois[0].salaire_annuel as number) * pourcentage_affectation * 100) / 100;
+
+  const rows = await sql`
+    INSERT INTO depenses_personnel
+      (action_id, emploi_id, agent_nom, pourcentage_affectation, heures, montant)
+    VALUES
+      (${action_id}, ${emploi_id}, ${agent_nom ?? ''}, ${pourcentage_affectation},
+       ${calculatedHeures}, ${calculatedMontant})
+    RETURNING *
+  `;
+  return apiOk(rows[0], 201);
+}
+
+export async function PUT(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session) return apiError('Non autorisé', 401);
+
+  const body = await req.json();
+  const { id, ...rest } = body;
+  if (!id) return apiError('ID requis');
+
+  const parsed = depensePersonnelSchema.safeParse(rest);
+  if (!parsed.success) return apiError(parsed.error.errors[0].message);
+
+  const { action_id, emploi_id, agent_nom, pourcentage_affectation, heures, montant } = parsed.data;
+  const sql = getDb();
+
+  const rows = await sql`
+    UPDATE depenses_personnel
+    SET action_id = ${action_id}, emploi_id = ${emploi_id}, agent_nom = ${agent_nom ?? ''},
+        pourcentage_affectation = ${pourcentage_affectation},
+        heures = ${heures}, montant = ${montant}
+    WHERE id = ${parseInt(id)}
+    RETURNING *
+  `;
+  if (rows.length === 0) return apiError('Dépense introuvable', 404);
+  return apiOk(rows[0]);
+}
+
+export async function DELETE(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session) return apiError('Non autorisé', 401);
+
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
+  if (!id) return apiError('ID requis');
+
+  const sql = getDb();
+  await sql`DELETE FROM depenses_personnel WHERE id = ${parseInt(id)}`;
+  return apiOk({ message: 'Supprimé' });
+}
