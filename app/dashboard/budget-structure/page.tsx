@@ -71,7 +71,11 @@ function BudgetStructureContent() {
     setLoading(true);
     fetch(`/api/budgets-structure?annee=${annee}`)
       .then(r => r.json())
-      .then(data => { setLignes(data); setLoading(false); });
+      // Neon renvoie les colonnes NUMERIC en string → on force Number()
+      .then((data: Ligne[]) => {
+        setLignes(data.map(l => ({ ...l, montant: Number(l.montant) })));
+        setLoading(false);
+      });
   };
 
   useEffect(reload, [annee]);
@@ -87,7 +91,7 @@ function BudgetStructureContent() {
   function openEdit(l: Ligne) {
     setEditing(l);
     setForm({ type_flux: l.type_flux, code_compte: l.code_compte, categorie: l.categorie,
-              sous_categorie: l.sous_categorie, montant: l.montant, ordre: l.ordre });
+              sous_categorie: l.sous_categorie, montant: Number(l.montant), ordre: l.ordre });
     setErr('');
     setModal(true);
   }
@@ -184,6 +188,17 @@ function BudgetStructureContent() {
           <p className="text-sm text-gray-500">Exercice {annee}</p>
         </div>
         <div className="flex gap-2">
+          <a
+            href={`/api/budgets-structure/export?annee=${annee}`}
+            download
+            className="btn-secondary flex items-center gap-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Exporter Excel
+          </a>
           <button onClick={openImport} className="btn-secondary flex items-center gap-1">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
