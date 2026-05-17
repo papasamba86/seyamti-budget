@@ -34,13 +34,13 @@ export async function POST(req: Request) {
   const { action_id, emploi_id, agent_nom, pourcentage_affectation, heures, montant } = parsed.data;
   const sql = getDb();
 
-  const emplois = await sql`SELECT salaire_annuel FROM emplois_reperes WHERE id = ${emploi_id} LIMIT 1`;
+  const emplois = await sql`SELECT salaire_annuel, indice_professionnel FROM emplois_reperes WHERE id = ${emploi_id} LIMIT 1`;
   if (emplois.length === 0) return apiError('Emploi introuvable', 404);
 
   const calculatedHeures = heures > 0 ? heures : Math.round(1820 * pourcentage_affectation * 100) / 100;
   const calculatedMontant = montant > 0
     ? montant
-    : Math.round((emplois[0].salaire_annuel as number) * pourcentage_affectation * 100) / 100;
+    : Math.round((emplois[0].indice_professionnel as number) * pourcentage_affectation * 4.5 * 12 * 1.5 * 100) / 100;
 
   const rows = await sql`
     INSERT INTO depenses_personnel
@@ -67,11 +67,19 @@ export async function PUT(req: Request) {
   const { action_id, emploi_id, agent_nom, pourcentage_affectation, heures, montant } = parsed.data;
   const sql = getDb();
 
+  const emplois = await sql`SELECT salaire_annuel, indice_professionnel FROM emplois_reperes WHERE id = ${emploi_id} LIMIT 1`;
+  if (emplois.length === 0) return apiError('Emploi introuvable', 404);
+
+  const calculatedHeures = heures > 0 ? heures : Math.round(1820 * pourcentage_affectation * 100) / 100;
+  const calculatedMontant = montant > 0
+    ? montant
+    : Math.round((emplois[0].indice_professionnel as number) * pourcentage_affectation * 4.5 * 12 * 1.5 * 100) / 100;
+
   const rows = await sql`
     UPDATE depenses_personnel
     SET action_id = ${action_id}, emploi_id = ${emploi_id}, agent_nom = ${agent_nom ?? ''},
         pourcentage_affectation = ${pourcentage_affectation},
-        heures = ${heures}, montant = ${montant}
+        heures = ${calculatedHeures}, montant = ${calculatedMontant}
     WHERE id = ${parseInt(id)}
     RETURNING *
   `;

@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Modal from '@/components/Modal';
 import { formatMontant } from '@/lib/utils';
 
@@ -27,10 +28,19 @@ const TYPE_LABELS: Record<string, string> = {
   contribution_ressource: 'Contributions – Ressources',
 };
 
+const DEPENSES_TYPES = ['charge', 'contribution_emploi'];
+const RESSOURCES_TYPES = ['produit', 'contribution_ressource'];
+
 const empty = { type_flux: 'charge', code_compte: '', categorie: '', sous_categorie: '', montant: 0, ordre: 0 };
 
-export default function BudgetStructurePage() {
+function BudgetStructureContent() {
   const annee = new Date().getFullYear();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const tabParam = searchParams.get('tab');
+  const activeTab: 'ressources' | 'depenses' = tabParam === 'ressources' ? 'ressources' : 'depenses';
+
   const [lignes, setLignes]   = useState<Ligne[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal]     = useState(false);
@@ -50,7 +60,8 @@ export default function BudgetStructurePage() {
 
   function openAdd() {
     setEditing(null);
-    setForm({ ...empty });
+    const defaultType = activeTab === 'ressources' ? 'produit' : 'charge';
+    setForm({ ...empty, type_flux: defaultType });
     setErr('');
     setModal(true);
   }
@@ -95,8 +106,18 @@ export default function BudgetStructurePage() {
     return acc;
   }, {});
 
-  const totalCharges  = (grouped.charge ?? []).reduce((s, l) => s + l.montant, 0);
-  const totalProduits = (grouped.produit ?? []).reduce((s, l) => s + l.montant, 0);
+  const visibleTypes = activeTab === 'ressources' ? RESSOURCES_TYPES : DEPENSES_TYPES;
+
+  const totalCharges  = (grouped.charge ?? []).reduce((s, l) => s + l.montant, 0)
+    + (grouped.contribution_emploi ?? []).reduce((s, l) => s + l.montant, 0);
+  const totalProduits = (grouped.produit ?? []).reduce((s, l) => s + l.montant, 0)
+    + (grouped.contribution_ressource ?? []).reduce((s, l) => s + l.montant, 0);
+
+  const tabTotal = activeTab === 'ressources' ? totalProduits : totalCharges;
+
+  function setTab(tab: 'ressources' | 'depenses') {
+    router.push(`/dashboard/budget-structure?tab=${tab}`);
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -106,6 +127,23 @@ export default function BudgetStructurePage() {
           <p className="text-sm text-gray-500">Exercice {annee}</p>
         </div>
         <button onClick={openAdd} className="btn-primary">+ Ajouter une ligne</button>
+      </div>
+
+      {/* Onglets */}
+      <div className="flex gap-2 border-b border-gray-200">
+        {(['depenses', 'ressources'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setTab(tab)}
+            className={`px-5 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+              activeTab === tab
+                ? 'bg-navy text-white border-navy border-b-0'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {tab === 'depenses' ? 'Dépenses' : 'Ressources'}
+          </button>
+        ))}
       </div>
 
       {/* Solde */}
@@ -122,6 +160,12 @@ export default function BudgetStructurePage() {
         ))}
       </div>
 
+      {/* Tab total */}
+      <div className="text-sm text-gray-500">
+        Total {activeTab === 'depenses' ? 'dépenses' : 'ressources'} :{' '}
+        <span className="font-semibold text-gray-800">{formatMontant(tabTotal)}</span>
+      </div>
+
       {loading ? (
         <p className="text-gray-400 text-sm">Chargement...</p>
       ) : lignes.length === 0 ? (
@@ -129,14 +173,14 @@ export default function BudgetStructurePage() {
           Aucune ligne budgétaire. Cliquez sur &quot;Ajouter une ligne&quot; pour commencer.
         </div>
       ) : (
-        Object.entries(TYPE_LABELS).map(([type, label]) => {
+        visibleTypes.map(type => {
           const rows = grouped[type] ?? [];
           if (rows.length === 0) return null;
           const total = rows.reduce((s, l) => s + l.montant, 0);
           return (
             <div key={type} className="card overflow-hidden">
               <div className="flex items-center justify-between border-b bg-gray-50 px-4 py-3">
-                <h2 className="font-semibold text-gray-800">{label}</h2>
+                <h2 className="font-semibold text-gray-800">{TYPE_LABELS[type]}</h2>
                 <span className="text-sm font-semibold text-gray-700">{formatMontant(total)}</span>
               </div>
               <table className="w-full">
@@ -210,5 +254,13 @@ export default function BudgetStructurePage() {
         </form>
       </Modal>
     </div>
+  );
+}
+
+export default function BudgetStructurePage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-gray-400 text-sm">Chargement...</div>}>
+      <BudgetStructureContent />
+    </Suspense>
   );
 }

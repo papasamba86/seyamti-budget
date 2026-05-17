@@ -76,3 +76,12 @@ export const emploiSchema = z.object({
   libelle:              z.string().min(1).max(255).trim(),
   salaire_annuel:       z.number().min(0).default(0),
 });
+
+export const controleSchema = z.object({
+  budget_ligne_id: z.number().int().positive(),
+  annee: z.number().int().min(2000).max(2100),
+  mois: z.number().int().min(1).max(12),
+  montant_prevu: z.number().min(0).default(0),
+  montant_realise: z.number().min(0).default(0),
+  commentaire: z.string().max(2000).optional().default(''),
+});
