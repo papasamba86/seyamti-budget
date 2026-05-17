@@ -14,7 +14,7 @@ interface DepensePersonnel {
   agent_nom: string; pourcentage_affectation: number; heures: number; montant: number;
 }
 interface Prestation { id: number; libelle: string; cout_horaire: number; nb_heures: number; montant: number }
-interface Ressource  { id: number; financeur: string; montant: number; type_financement: string }
+interface Ressource  { id: number; financeur: string; montant: number; type_financement: string; date_debut: string | null; date_fin: string | null }
 
 const BADGE: Record<string, string>       = { en_cours: 'badge-green', termine: 'badge-gray', suspendu: 'badge-yellow' };
 const STATUT_LABELS: Record<string, string> = { en_cours: 'En cours', termine: 'Terminé', suspendu: 'Suspendu' };
@@ -81,7 +81,7 @@ export default function ActionDetailPage() {
   const [formFonct,     setFormFonct]     = useState({ libelle: '', code_compte: '', montant: 0 });
   const [formPersonnel, setFormPersonnel] = useState({ emploi_id: 0, agent_nom: '', pourcentage_affectation: 100 });
   const [formPrest,     setFormPrest]     = useState({ libelle: '', cout_horaire: 0, nb_heures: 0 });
-  const [formRess,      setFormRess]      = useState({ financeur: '', montant: 0, type_financement: '' });
+  const [formRess,      setFormRess]      = useState({ financeur: '', montant: 0, type_financement: '', date_debut: '', date_fin: '' });
 
   const [saving,    setSaving]    = useState(false);
   const [modalErr,  setModalErr]  = useState('');
@@ -174,9 +174,12 @@ export default function ActionDetailPage() {
     if (field === 'financeur')        u.financeur        = rawValue;
     if (field === 'montant')          u.montant          = Math.max(0, parseFloat(rawValue) || 0);
     if (field === 'type_financement') u.type_financement = rawValue;
+    if (field === 'date_debut')       u.date_debut       = rawValue || null;
+    if (field === 'date_fin')         u.date_fin         = rawValue || null;
     await fetch('/api/ressources', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: u.id, action_id: actionId, financeur: u.financeur, montant: u.montant, type_financement: u.type_financement }),
+      body: JSON.stringify({ id: u.id, action_id: actionId, financeur: u.financeur, montant: u.montant,
+        type_financement: u.type_financement, date_debut: u.date_debut, date_fin: u.date_fin }),
     });
     loadRessources();
   }
@@ -222,11 +225,15 @@ export default function ActionDetailPage() {
     e.preventDefault(); setSaving(true); setModalErr('');
     const res = await fetch('/api/ressources', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action_id: actionId, financeur: formRess.financeur, montant: formRess.montant, type_financement: formRess.type_financement }),
+      body: JSON.stringify({
+        action_id: actionId, financeur: formRess.financeur, montant: formRess.montant,
+        type_financement: formRess.type_financement,
+        date_debut: formRess.date_debut || null, date_fin: formRess.date_fin || null,
+      }),
     });
     const data = await res.json(); setSaving(false);
     if (!res.ok) { setModalErr(data.error ?? 'Erreur'); return; }
-    setModalRess(false); setFormRess({ financeur: '', montant: 0, type_financement: '' }); loadRessources();
+    setModalRess(false); setFormRess({ financeur: '', montant: 0, type_financement: '', date_debut: '', date_fin: '' }); loadRessources();
   }
 
   async function deleteFonct(id: number)    { if (!confirm('Supprimer cette dépense ?'))    return; await fetch(`/api/depenses-fonctionnement?id=${id}`, { method: 'DELETE' }); loadFonct(); }
@@ -458,7 +465,7 @@ export default function ActionDetailPage() {
           label="Ressources"
           total={totalRess}
           color="text-green-600"
-          onAdd={() => { setFormRess({ financeur: '', montant: 0, type_financement: '' }); setModalErr(''); setModalRess(true); }}
+          onAdd={() => { setFormRess({ financeur: '', montant: 0, type_financement: '', date_debut: '', date_fin: '' }); setModalErr(''); setModalRess(true); }}
           addLabel="+ Ajouter un financeur"
         />
 
@@ -471,6 +478,8 @@ export default function ActionDetailPage() {
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Financeur</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Type de financement</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase w-32">Début convention</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase w-32">Fin convention</th>
                   <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase w-36">Montant</th>
                   <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase w-28">% charges</th>
                   <th className="px-3 py-2 w-8"></th>
@@ -481,6 +490,18 @@ export default function ActionDetailPage() {
                   <tr key={r.id} className="hover:bg-gray-50">
                     <td className="px-3 py-1">{textCell('ress', r.id, 'financeur', r.financeur, v => updateRess(r, 'financeur', v))}</td>
                     <td className="px-3 py-1">{textCell('ress', r.id, 'type_financement', r.type_financement, v => updateRess(r, 'type_financement', v))}</td>
+                    <td className="px-3 py-1">
+                      {numCell('ress', r.id, 'date_debut',
+                        0,
+                        r.date_debut ? new Date(r.date_debut).toLocaleDateString('fr-FR') : '–',
+                        v => updateRess(r, 'date_debut', v))}
+                    </td>
+                    <td className="px-3 py-1">
+                      {numCell('ress', r.id, 'date_fin',
+                        0,
+                        r.date_fin ? new Date(r.date_fin).toLocaleDateString('fr-FR') : '–',
+                        v => updateRess(r, 'date_fin', v))}
+                    </td>
                     <td className="px-3 py-1">{numCell('ress', r.id, 'montant', r.montant, formatMontant(r.montant), v => updateRess(r, 'montant', v), 0)}</td>
                     <td className="px-3 py-1 text-right text-gray-500">
                       {totalCharges > 0 ? formatPourcentage(r.montant / totalCharges) : '—'}
@@ -615,6 +636,18 @@ export default function ActionDetailPage() {
             <label className="label">Type de financement</label>
             <input className="input" maxLength={100} placeholder="Subvention, Autofinancement…"
               value={formRess.type_financement} onChange={e => setFormRess(f => ({ ...f, type_financement: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Début de convention</label>
+              <input type="date" className="input"
+                value={formRess.date_debut} onChange={e => setFormRess(f => ({ ...f, date_debut: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Fin de convention</label>
+              <input type="date" className="input"
+                value={formRess.date_fin} onChange={e => setFormRess(f => ({ ...f, date_fin: e.target.value }))} />
+            </div>
           </div>
           <div>
             <label className="label">Montant (€)</label>

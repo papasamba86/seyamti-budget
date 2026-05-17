@@ -9,6 +9,7 @@ export async function middleware(req: NextRequest) {
   if (
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/setup') ||
+    pathname.startsWith('/api/migrate-v5') ||
     pathname === '/login' ||
     pathname === '/setup'
   ) {

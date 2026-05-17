@@ -69,7 +69,7 @@ const NAV_TREE: NavNode[] = [
       {
         kind: 'leaf',
         label: 'Ressources',
-        href: '/dashboard/budget-action',
+        href: '/dashboard/actions',
         roles: ['admin', 'editeur', 'lecteur'],
       },
       {
@@ -80,19 +80,19 @@ const NAV_TREE: NavNode[] = [
           {
             kind: 'leaf',
             label: 'Dép. de personnel',
-            href: '/dashboard/emplois',
+            href: '/dashboard/actions',
             roles: ['admin', 'editeur', 'lecteur'],
           },
           {
             kind: 'leaf',
             label: 'Dép. de fonctionnement',
-            href: '/dashboard/budget-action',
+            href: '/dashboard/actions',
             roles: ['admin', 'editeur', 'lecteur'],
           },
           {
             kind: 'leaf',
             label: 'Dép. de prestations',
-            href: '/dashboard/budget-action',
+            href: '/dashboard/actions',
             roles: ['admin', 'editeur', 'lecteur'],
           },
         ],

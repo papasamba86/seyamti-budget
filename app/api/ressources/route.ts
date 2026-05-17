@@ -29,12 +29,13 @@ export async function POST(req: Request) {
   const parsed = ressourceSchema.safeParse(body);
   if (!parsed.success) return apiError(parsed.error.errors[0].message);
 
-  const { action_id, financeur, montant, type_financement } = parsed.data;
+  const { action_id, financeur, montant, type_financement, date_debut, date_fin } = parsed.data;
   const sql = getDb();
 
   const rows = await sql`
-    INSERT INTO ressources (action_id, financeur, montant, type_financement)
-    VALUES (${action_id}, ${financeur}, ${montant}, ${type_financement ?? ''})
+    INSERT INTO ressources (action_id, financeur, montant, type_financement, date_debut, date_fin)
+    VALUES (${action_id}, ${financeur}, ${montant}, ${type_financement ?? ''},
+            ${date_debut ?? null}, ${date_fin ?? null})
     RETURNING *
   `;
   return apiOk(rows[0], 201);
@@ -51,13 +52,14 @@ export async function PUT(req: Request) {
   const parsed = ressourceSchema.safeParse(rest);
   if (!parsed.success) return apiError(parsed.error.errors[0].message);
 
-  const { action_id, financeur, montant, type_financement } = parsed.data;
+  const { action_id, financeur, montant, type_financement, date_debut, date_fin } = parsed.data;
   const sql = getDb();
 
   const rows = await sql`
     UPDATE ressources
     SET action_id = ${action_id}, financeur = ${financeur},
-        montant = ${montant}, type_financement = ${type_financement ?? ''}
+        montant = ${montant}, type_financement = ${type_financement ?? ''},
+        date_debut = ${date_debut ?? null}, date_fin = ${date_fin ?? null}
     WHERE id = ${parseInt(id)}
     RETURNING *
   `;

@@ -55,6 +55,8 @@ export const ressourceSchema = z.object({
   financeur:         z.string().min(1).max(255).trim(),
   montant:           z.number().min(0).default(0),
   type_financement:  z.string().max(100).optional().default(''),
+  date_debut:        z.string().nullable().optional(),
+  date_fin:          z.string().nullable().optional(),
 });
 
 export const createUserSchema = z.object({
