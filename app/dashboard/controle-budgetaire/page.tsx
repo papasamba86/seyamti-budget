@@ -40,7 +40,14 @@ export default function ControleBudgetairePage() {
     fetch(`/api/controle-budgetaire?annee=${annee}&mois=${mois}`)
       .then(r => r.json())
       .then(data => {
-        setLignes(Array.isArray(data) ? data : (data.data ?? []));
+        const rows: LigneControle[] = Array.isArray(data) ? data : (data.data ?? []);
+        // Neon renvoie les colonnes NUMERIC en string → coercion Number()
+        setLignes(rows.map(l => ({
+          ...l,
+          montant_annuel:  Number(l.montant_annuel  ?? 0),
+          montant_prevu:   l.montant_prevu   != null ? Number(l.montant_prevu)   : null,
+          montant_realise: l.montant_realise != null ? Number(l.montant_realise) : null,
+        })));
         setLoading(false);
       })
       .catch(() => setLoading(false));
