@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, FormEvent, Suspense } from 'react';
+import { useState, useEffect, useRef, FormEvent, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Modal from '@/components/Modal';
 import { formatMontant } from '@/lib/utils';
@@ -28,10 +28,18 @@ const TYPE_LABELS: Record<string, string> = {
   contribution_ressource: 'Contributions – Ressources',
 };
 
-const DEPENSES_TYPES = ['charge', 'contribution_emploi'];
+const DEPENSES_TYPES  = ['charge', 'contribution_emploi'];
 const RESSOURCES_TYPES = ['produit', 'contribution_ressource'];
 
 const empty = { type_flux: 'charge', code_compte: '', categorie: '', sous_categorie: '', montant: 0, ordre: 0 };
+
+/* ── Import modal state ── */
+interface ImportResult {
+  inserted: number;
+  errors: string[];
+  sheetUsed: string;
+  message: string;
+}
 
 function BudgetStructureContent() {
   const annee = new Date().getFullYear();
@@ -48,6 +56,16 @@ function BudgetStructureContent() {
   const [form, setForm]       = useState({ ...empty });
   const [saving, setSaving]   = useState(false);
   const [err, setErr]         = useState('');
+
+  /* ── Import state ── */
+  const [importModal, setImportModal]     = useState(false);
+  const [importAnnee, setImportAnnee]     = useState(annee);
+  const [importMode, setImportMode]       = useState<'append' | 'replace'>('append');
+  const [importFile, setImportFile]       = useState<File | null>(null);
+  const [importing, setImporting]         = useState(false);
+  const [importErr, setImportErr]         = useState('');
+  const [importResult, setImportResult]   = useState<ImportResult | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const reload = () => {
     setLoading(true);
@@ -101,6 +119,45 @@ function BudgetStructureContent() {
     reload();
   }
 
+  /* ── Import handlers ── */
+  function openImport() {
+    setImportFile(null);
+    setImportAnnee(annee);
+    setImportMode('append');
+    setImportErr('');
+    setImportResult(null);
+    if (fileRef.current) fileRef.current.value = '';
+    setImportModal(true);
+  }
+
+  async function handleImport(e: FormEvent) {
+    e.preventDefault();
+    if (!importFile) { setImportErr('Veuillez sélectionner un fichier.'); return; }
+    setImporting(true);
+    setImportErr('');
+    setImportResult(null);
+
+    const fd = new FormData();
+    fd.append('file', importFile);
+    fd.append('annee', String(importAnnee));
+    fd.append('mode', importMode);
+
+    try {
+      const res  = await fetch('/api/budgets-structure/import', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) {
+        setImportErr(data.error ?? 'Erreur lors de l\'import');
+      } else {
+        setImportResult(data);
+        reload();
+      }
+    } catch {
+      setImportErr('Erreur réseau. Veuillez réessayer.');
+    } finally {
+      setImporting(false);
+    }
+  }
+
   const grouped = lignes.reduce<Record<string, Ligne[]>>((acc, l) => {
     (acc[l.type_flux] ??= []).push(l);
     return acc;
@@ -126,7 +183,16 @@ function BudgetStructureContent() {
           <h1 className="text-2xl font-bold text-gray-900">Budget de la Structure</h1>
           <p className="text-sm text-gray-500">Exercice {annee}</p>
         </div>
-        <button onClick={openAdd} className="btn-primary">+ Ajouter une ligne</button>
+        <div className="flex gap-2">
+          <button onClick={openImport} className="btn-secondary flex items-center gap-1">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Importer Excel
+          </button>
+          <button onClick={openAdd} className="btn-primary">+ Ajouter une ligne</button>
+        </div>
       </div>
 
       {/* Onglets */}
@@ -149,8 +215,8 @@ function BudgetStructureContent() {
       {/* Solde */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Total Charges',  val: totalCharges,               color: 'text-red-600' },
-          { label: 'Total Produits', val: totalProduits,              color: 'text-green-600' },
+          { label: 'Total Charges',  val: totalCharges,                color: 'text-red-600' },
+          { label: 'Total Produits', val: totalProduits,               color: 'text-green-600' },
           { label: 'Solde',          val: totalProduits - totalCharges, color: totalProduits - totalCharges >= 0 ? 'text-green-600' : 'text-red-600' },
         ].map(s => (
           <div key={s.label} className="card p-4 text-center">
@@ -170,7 +236,7 @@ function BudgetStructureContent() {
         <p className="text-gray-400 text-sm">Chargement...</p>
       ) : lignes.length === 0 ? (
         <div className="card p-10 text-center text-gray-400">
-          Aucune ligne budgétaire. Cliquez sur &quot;Ajouter une ligne&quot; pour commencer.
+          Aucune ligne budgétaire. Cliquez sur &quot;Ajouter une ligne&quot; ou importez un fichier Excel.
         </div>
       ) : (
         visibleTypes.map(type => {
@@ -213,7 +279,7 @@ function BudgetStructureContent() {
         })
       )}
 
-      {/* Modal */}
+      {/* ── Modal Ajouter / Modifier ── */}
       <Modal title={editing ? 'Modifier la ligne' : 'Nouvelle ligne budgétaire'} open={modal} onClose={() => setModal(false)}>
         {err && <p className="mb-3 rounded bg-red-50 p-2 text-sm text-red-600">{err}</p>}
         <form onSubmit={handleSave} className="space-y-4">
@@ -249,6 +315,155 @@ function BudgetStructureContent() {
             <button type="button" onClick={() => setModal(false)} className="btn-secondary">Annuler</button>
             <button type="submit" disabled={saving} className="btn-primary">
               {saving ? 'Enregistrement...' : 'Enregistrer'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── Modal Import Excel ── */}
+      <Modal title="Importer un fichier Excel" open={importModal} onClose={() => setImportModal(false)}>
+        {/* Template download */}
+        <div className="mb-4 rounded-lg bg-blue-50 border border-blue-200 p-3 flex items-start gap-3">
+          <svg className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="text-sm text-blue-700">
+            <p className="font-medium mb-1">Téléchargez le modèle Excel</p>
+            <p className="text-blue-600 text-xs mb-2">
+              Le fichier doit contenir les colonnes : Type de flux, Code compte, Catégorie, Sous-catégorie, Montant.
+            </p>
+            <a
+              href="/api/budgets-structure/template"
+              download
+              className="inline-flex items-center gap-1 text-xs font-medium text-blue-800 underline hover:text-blue-900"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Télécharger le modèle (modele_budget_structure.xlsx)
+            </a>
+          </div>
+        </div>
+
+        {importErr && (
+          <div className="mb-4 rounded bg-red-50 border border-red-200 p-3 text-sm text-red-600">
+            {importErr}
+          </div>
+        )}
+
+        {importResult && (
+          <div className="mb-4 rounded bg-green-50 border border-green-200 p-3 text-sm">
+            <p className="font-medium text-green-700">✓ {importResult.message}</p>
+            {importResult.errors.length > 0 && (
+              <div className="mt-2">
+                <p className="text-orange-600 font-medium text-xs">Avertissements ({importResult.errors.length}) :</p>
+                <ul className="mt-1 space-y-0.5 text-xs text-orange-600 list-disc list-inside">
+                  {importResult.errors.slice(0, 10).map((e, i) => <li key={i}>{e}</li>)}
+                  {importResult.errors.length > 10 && (
+                    <li>…et {importResult.errors.length - 10} autre(s)</li>
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        <form onSubmit={handleImport} className="space-y-4">
+          {/* File input */}
+          <div>
+            <label className="label">Fichier Excel <span className="text-red-500">*</span></label>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="block w-full text-sm text-gray-500
+                file:mr-3 file:py-2 file:px-4 file:rounded file:border-0
+                file:text-sm file:font-medium file:bg-navy file:text-white
+                hover:file:bg-navy-light cursor-pointer"
+              onChange={e => setImportFile(e.target.files?.[0] ?? null)}
+            />
+            <p className="mt-1 text-xs text-gray-400">Formats acceptés : .xlsx, .xls, .csv</p>
+          </div>
+
+          {/* Year */}
+          <div>
+            <label className="label">Exercice</label>
+            <select
+              className="input"
+              value={importAnnee}
+              onChange={e => setImportAnnee(parseInt(e.target.value))}
+            >
+              {Array.from({ length: 5 }, (_, i) => annee - 1 + i).map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Mode */}
+          <div>
+            <label className="label">Mode d'import</label>
+            <div className="space-y-2 mt-1">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="mode"
+                  value="append"
+                  checked={importMode === 'append'}
+                  onChange={() => setImportMode('append')}
+                  className="mt-0.5"
+                />
+                <span className="text-sm">
+                  <span className="font-medium text-gray-800">Ajouter</span>
+                  <span className="text-gray-500"> — ajoute les nouvelles lignes aux données existantes</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="mode"
+                  value="replace"
+                  checked={importMode === 'replace'}
+                  onChange={() => setImportMode('replace')}
+                  className="mt-0.5"
+                />
+                <span className="text-sm">
+                  <span className="font-medium text-gray-800">Remplacer</span>
+                  <span className="text-gray-500"> — supprime toutes les lignes de l'exercice avant d'importer</span>
+                </span>
+              </label>
+            </div>
+            {importMode === 'replace' && (
+              <div className="mt-2 flex items-start gap-2 rounded bg-orange-50 border border-orange-200 p-2 text-xs text-orange-700">
+                <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>
+                  <strong>Attention :</strong> toutes les lignes budgétaires de l'exercice {importAnnee} seront supprimées
+                  et remplacées par le contenu du fichier. Cette action est irréversible.
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={() => setImportModal(false)} className="btn-secondary">
+              Annuler
+            </button>
+            <button type="submit" disabled={importing || !importFile} className="btn-primary flex items-center gap-2">
+              {importing ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  Import en cours…
+                </>
+              ) : (
+                'Importer'
+              )}
             </button>
           </div>
         </form>
