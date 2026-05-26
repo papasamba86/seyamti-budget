@@ -112,6 +112,26 @@ const NAV_TREE: NavNode[] = [
     roles: ['admin', 'editeur', 'lecteur'],
   },
   {
+    kind: 'group',
+    label: 'FicheProjet Pro',
+    href: '/dashboard/fiches-projet',
+    roles: ['admin', 'editeur', 'lecteur'],
+    children: [
+      {
+        kind: 'leaf',
+        label: 'Mes fiches projet',
+        href: '/dashboard/fiches-projet',
+        roles: ['admin', 'editeur', 'lecteur'],
+      },
+      {
+        kind: 'leaf',
+        label: 'Nouvelle fiche',
+        href: '/dashboard/fiches-projet/nouveau',
+        roles: ['admin', 'editeur'],
+      },
+    ],
+  },
+  {
     kind: 'leaf',
     label: 'Utilisateurs',
     href: '/dashboard/utilisateurs',
